@@ -1,0 +1,9 @@
+lines_of_code,decision_points,function_count,has_eval,has_hardcoded_secret,bug_prone
+50,9,4,0,1,1
+18,2,1,0,0,0
+20,2,2,0,0,0
+10,1,1,0,0,0
+60,10,4,0,1,1
+45,8,3,1,0,1
+35,6,3,1,1,1
+15,1,1,0,0,0
