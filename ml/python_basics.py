@@ -2,6 +2,7 @@
 # COGNIVEX AI - First Python Program
 
 # 1. Project information
+
 project_name = "Cognivex AI"
 language = "Python"
 
