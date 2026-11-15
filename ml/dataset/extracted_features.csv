@@ -1,0 +1,3 @@
+file_name,lines_of_code,decision_points,function_count,has_eval,has_hardcoded_secret
+login.py,7,1,2,0,0
+security_test.py,6,0,0,1,1
