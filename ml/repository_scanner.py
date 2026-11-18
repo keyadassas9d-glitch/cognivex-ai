@@ -1,32 +1,26 @@
 
-# COGNIVEX AI
-# Mini Component: Repository File Scanner
+from pathlib import Path
 
-files = [
-    "main.py",
-    "login.py",
-    "database.py",
-    "security.py",
-    "readme.txt",
-    "model.py"
-]
+def scan_repository(repository_path):
 
-total_scanned = 0
-invalid_files = 0
+    repository = Path(repository_path)
 
-print("===== COGNIVEX AI SCANNER =====")
+    # Find Python files in all folders and subfolders
+    python_files = list(repository.rglob("*.py"))
 
-for file in files:
+    print("\nCOGNIVEX AI - REPOSITORY SCANNER")
+    print("--------------------------------")
 
-    if file.endswith(".py"):
-        print("Scanning:", file)
-        total_scanned += 1
+    print("Repository:", repository.name)
+    print("Python files found:", len(python_files))
 
-    else:
-        print("Skipping invalid file:", file)
-        invalid_files += 1
+    for file in python_files:
+        print(file.relative_to(repository))
 
-print("\n===== SCAN SUMMARY =====")
-print("Total Python files scanned:", total_scanned)
-print("Invalid files skipped:", invalid_files)
-print("Scan completed!")
+    return python_files
+
+
+# Sample repository location
+sample_path = Path(__file__).parent / "sample_repository"
+
+scan_repository(sample_path)

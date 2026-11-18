@@ -1,170 +1,79 @@
 
-# COGNIVEX AI
-# Component: Automatic ML Feature Extractor
-
 import ast
-import csv
+import pandas as pd
 from pathlib import Path
 
-# Locate project folders
+# Project directories
 ml_folder = Path(__file__).parent
+repository = ml_folder / "sample_repository"
+output_file = ml_folder / "dataset" / "extracted_features.csv"
 
-project_folder = ml_folder / "sample_repository"
+# Find Python files in all folders
+python_files = list(repository.rglob("*.py"))
 
-dataset_folder = ml_folder / "dataset"
+features_list = []
 
-# Find Python files
-python_files = list(project_folder.glob("*.py"))
-
-# Output CSV file
-output_file = dataset_folder / "extracted_features.csv"
-
-# Store extracted records
-extracted_data = []
-
-print("===== COGNIVEX AI FEATURE EXTRACTOR =====")
-
-# Analyse each Python file
-for file_path in python_files:
-
-    print("\nExtracting features:", file_path.name)
+for file in python_files:
 
     try:
+        source_code = file.read_text(encoding="utf-8")
+        tree = ast.parse(source_code)
 
-        # Read source code
-        source_code = file_path.read_text(encoding="utf-8")
-
-        # Count lines
         lines = source_code.splitlines()
 
-        lines_of_code = sum(
-            1 for line in lines if line.strip()
-        )
-
-        # Parse source code
-        syntax_tree = ast.parse(source_code)
-
-        # Extract functions
-        functions = [
-            node for node in ast.walk(syntax_tree)
-            if isinstance(
-                node,
-                (ast.FunctionDef, ast.AsyncFunctionDef)
-            )
-        ]
-
-        function_count = len(functions)
-
-        # Count decision points
-        decision_nodes = (
-            ast.If,
-            ast.For,
-            ast.AsyncFor,
-            ast.While,
-            ast.ExceptHandler
-        )
-
-        decision_points = sum(
-            isinstance(node, decision_nodes)
-            for node in ast.walk(syntax_tree)
-        )
-
-        # Count eval() and exec() calls
+        function_count = 0
+        decision_points = 0
         has_eval = 0
-
-        for node in ast.walk(syntax_tree):
-
-            if isinstance(node, ast.Call):
-
-                if isinstance(node.func, ast.Name):
-
-                    if node.func.id in {"eval", "exec"}:
-                        has_eval = 1
-
-        # Check for hardcoded credential-like strings
-        sensitive_names = {
-            "password",
-            "api_key",
-            "secret"
-        }
-
         has_hardcoded_secret = 0
 
-        for node in ast.walk(syntax_tree):
+        for node in ast.walk(tree):
+
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                function_count += 1
+
+            if isinstance(node, (ast.If, ast.For, ast.While)):
+                decision_points += 1
+
+            if isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Name):
+                    if node.func.id in ["eval", "exec"]:
+                        has_eval = 1
 
             if isinstance(node, ast.Assign):
-                targets = node.targets
-                value = node.value
-
-            elif isinstance(node, ast.AnnAssign):
-                targets = [node.target]
-                value = node.value
-
-            else:
-                continue
-
-            if isinstance(value, ast.Constant) and isinstance(value.value, str):
-
-                for target in targets:
-
+                for target in node.targets:
                     if isinstance(target, ast.Name):
+                        if target.id.lower() in [
+                            "password", "api_key", "secret"
+                        ]:
+                            if isinstance(node.value, ast.Constant):
+                                if isinstance(node.value.value, str):
+                                    has_hardcoded_secret = 1
 
-                        if target.id.lower() in sensitive_names:
-                            has_hardcoded_secret = 1
-
-        # Create one feature record per file
-        record = {
-            "file_name": file_path.name,
-            "lines_of_code": lines_of_code,
+        features_list.append({
+            "file_name": str(file.relative_to(repository)),
+            "lines_of_code": len(lines),
             "decision_points": decision_points,
             "function_count": function_count,
             "has_eval": has_eval,
             "has_hardcoded_secret": has_hardcoded_secret
-        }
+        })
 
-        extracted_data.append(record)
+        print("Analysed:", file.relative_to(repository))
 
-        print("Lines of code:", lines_of_code)
-        print("Decision points:", decision_points)
-        print("Functions:", function_count)
-        print("Has eval/exec:", has_eval)
-        print("Has hardcoded secret:", has_hardcoded_secret)
+    except SyntaxError:
+        print("Skipped syntax error:", file.name)
 
-    except SyntaxError as error:
+    except Exception as error:
+        print("Could not analyse:", file.name, error)
 
-        print("Skipped: Invalid Python syntax")
-        print("Error:", error.msg)
+# Save extracted features
+df = pd.DataFrame(features_list)
 
-    except OSError as error:
+output_file.parent.mkdir(parents=True, exist_ok=True)
+df.to_csv(output_file, index=False)
 
-        print("Unable to read file:", error)
-
-
-# Save extracted features into CSV
-field_names = [
-    "file_name",
-    "lines_of_code",
-    "decision_points",
-    "function_count",
-    "has_eval",
-    "has_hardcoded_secret"
-]
-
-with open(output_file, "w", newline="", encoding="utf-8") as csv_file:
-
-    writer = csv.DictWriter(
-        csv_file,
-        fieldnames=field_names
-    )
-
-    writer.writeheader()
-    writer.writerows(extracted_data)
-
-
-# Display summary
-print("\n===== FEATURE EXTRACTION SUMMARY =====")
-print("Files discovered:", len(python_files))
-print("Files successfully processed:", len(extracted_data))
-print("Feature records generated:", len(extracted_data))
-print("Output file:", output_file)
-print("Feature extraction completed!")
+print("\nCOGNIVEX AI - FEATURE EXTRACTION")
+print("--------------------------------")
+print("Total Python files found:", len(python_files))
+print("Successfully analysed:", len(df))
+print("Features saved to:", output_file)
